@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Request
+    url: https://github.com/maxbarsukov/radish-db/discussions
+    about: Visit our GitHub Discussions page to suggest an idea to make RadishDB better.
+
+  - name: RadishDB Community Chat
+    url: https://t.me/radishdb
+    about: We invite you to join our RadishDB Community Chat, where you can find support from our team and the community, but where you can also share your projects or just talk about random stuff with other members of the RadishDB community 😁.
+
+  - name: RadishDB Public Backlog
+    url: https://github.com/maxbarsukov/radish-db/projects/1
+    about: See what's next on our public backlog at Github Projects, where you can submit your ideas and vote for the features you want.
