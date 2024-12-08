@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -e
+
+current_version="$(cat version)"
+new_version="$1"
+
+if [ -z "$new_version" ]; then
+  echo 'ERROR: No version supplied!' >&2
+  echo >&2
+  echo 'Usage:   bump_version <semantic-version>' >&2
+  echo 'Example: bump_version 1.0.0' >&2
+  exit 1
+fi
+
+if [[ "$current_version" = "$new_version" ]]; then
+  echo "Already on version $current_version!" >&2
+  exit 1
+fi
+
+echo "Current Version:  $current_version"
+echo "New Version:      $new_version"
+echo
+
+read -r -p "Want to bump? [Y/n]" response
+response=${response,,}
+
+if [[ $response =~ ^(y| ) ]] || [[ -z $response ]]; then
+  echo "$new_version" > version
+
+  git commit --message="chore(release): :rocket: bump version from $current_version to $new_version" -- version
+
+  echo
+  git tag -ae "v$new_version" -m ":rocket: Release $new_version: "
+else
+  exit 1
+fi
