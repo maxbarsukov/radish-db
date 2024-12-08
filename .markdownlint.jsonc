@@ -17,6 +17,9 @@
   // Multiple headings with the same content. That's fine.
   "MD024": false,
 
+  // Sometimes it needed to place fences in list and so on...
+  "MD031": false,
+
   // Cause I love inlining a little HTML in my markdown.
   "MD033": false,
 
