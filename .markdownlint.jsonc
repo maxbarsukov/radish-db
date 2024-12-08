@@ -5,7 +5,7 @@
   // Style of unordered lists..
   "MD007": {
     "indent": 2,
-    "start_indented": true
+    "start_indented": false
   },
 
   // no-trailing-spaces: true
@@ -18,5 +18,8 @@
   "MD024": false,
 
   // Cause I love inlining a little HTML in my markdown.
-  "MD033": false
+  "MD033": false,
+
+  // Bare links are OK
+  "MD034": false
 }
