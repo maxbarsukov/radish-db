@@ -24,5 +24,8 @@
   "MD033": false,
 
   // Bare links are OK
-  "MD034": false
+  "MD034": false,
+
+  // I want to add a picture at the top of README...
+  "MD041": false
 }
