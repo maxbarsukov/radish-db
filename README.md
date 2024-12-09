@@ -38,7 +38,7 @@ RadishDB is an in-memory distributed key-value data store that chooses Consisten
 <details open>
   <summary><b>🔔 Dec. TODO, 2024 (v0.1.0)</b></summary>
 
-  > - Implement [**RAFT Consensus Algorithm**](https://raft.github.io/raft.pdf); \
+  > - Implement [**RAFT Consensus Algorithm**](https://raft.github.io/raft.pdf);
   > - Basic distributed key-value store.
 
 </details>
