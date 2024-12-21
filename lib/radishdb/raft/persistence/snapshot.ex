@@ -15,14 +15,13 @@ defmodule RadishDB.Raft.Persistence.Snapshot do
   alias RadishDB.Raft.Persistence.SnapshotMetadata
   alias RadishDB.Raft.Persistence.Store
   alias RadishDB.Raft.Types.RPC.InstallSnapshot
-  alias RadishDB.Raft.Types.{CommandResults, FollowerIndices, LogIndex, LogInfo, TermNumber}
-  alias RadishDB.Raft.Utils.Collections.PidSet
+  alias RadishDB.Raft.Types.{CommandResults, TermNumber}
 
   use Croma.Struct,
     fields: [
       members: Members,
       term: TermNumber,
-      last_committed_entry: LogEntry,
+      last_committed_entry: Entry,
       config: Config,
       data: Croma.Any,
       command_results: CommandResults
@@ -40,7 +39,7 @@ defmodule RadishDB.Raft.Persistence.Snapshot do
   returning the snapshot, metadata, and log entries if available.
   """
   defun read_latest_snapshot_and_logs_if_available(dir :: Path.t()) ::
-          nil | {t, SnapshotMetadata.t(), Enum.t(LogEntry.t())} do
+          nil | {t, SnapshotMetadata.t(), Enum.t(Entry.t())} do
     case find_snapshot_and_log_files(dir) do
       nil ->
         nil
@@ -50,16 +49,13 @@ defmodule RadishDB.Raft.Persistence.Snapshot do
         {_, last_committed_index, _, _} = snapshot.last_committed_entry
 
         log_stream =
-          Stream.flat_map(log_paths, &LogEntry.read_as_stream/1)
+          Stream.flat_map(log_paths, &Entry.read_as_stream/1)
           |> Stream.drop_while(fn {_, i, _, _} -> i < last_committed_index end)
 
         {snapshot, meta, log_stream}
     end
   end
 
-  @doc """
-  Finds the snapshot and log files in the specified directory.
-  """
   defunp find_snapshot_and_log_files(dir :: Path.t()) ::
            nil | {Path.t(), SnapshotMetadata.t(), [Path.t()]} do
     case Store.list_snapshots_in(dir) |> List.first() do

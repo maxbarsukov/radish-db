@@ -12,7 +12,7 @@ defmodule RadishDB.Raft.Persistence.Store do
   alias RadishDB.Raft.Log.Entry
   alias RadishDB.Raft.Persistence.Snapshot
   alias RadishDB.Raft.Persistence.SnapshotMetadata
-  alias RadishDB.Raft.Types.{LogIndex, TermNumber}
+  alias RadishDB.Raft.Types.LogIndex
 
   use Croma.Struct,
     fields: [
@@ -46,7 +46,7 @@ defmodule RadishDB.Raft.Persistence.Store do
           dir :: Path.t(),
           factor :: number,
           meta :: SnapshotMetadata.t(),
-          {_, index_first, _, _} = entry_restore :: LogEntry.t()
+          {_, index_first, _, _} = entry_restore :: Entry.t()
         ) :: t do
     %__MODULE__{
       dir: dir,
@@ -85,9 +85,9 @@ defmodule RadishDB.Raft.Persistence.Store do
   """
   defun write_log_entries(
           %__MODULE__{log_fd: fd, log_size_written: size} = p,
-          entries :: [LogEntry.t()]
+          entries :: [Entry.t()]
         ) :: t do
-    bin = Enum.map(entries, &LogEntry.to_binary/1) |> :erlang.iolist_to_binary()
+    bin = Enum.map(entries, &Entry.to_binary/1) |> :erlang.iolist_to_binary()
     :ok = :file.write(fd, bin)
     %__MODULE__{p | log_size_written: size + byte_size(bin)}
   end
@@ -144,7 +144,7 @@ defmodule RadishDB.Raft.Persistence.Store do
 
       paths ->
         latest_log_path = Enum.max_by(paths, &extract_first_log_index_from_path/1)
-        LogEntry.read_last_entry_index(latest_log_path)
+        Entry.read_last_entry_index(latest_log_path)
     end
   end
 
