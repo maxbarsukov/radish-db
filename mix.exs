@@ -16,6 +16,7 @@ defmodule RadishDB.MixProject do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: Mix.compilers() ++ [:croma],
       preferred_cli_env: [
         # Test coverage
         coveralls: :test,
