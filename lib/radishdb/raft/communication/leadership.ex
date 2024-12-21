@@ -86,9 +86,11 @@ defmodule RadishDB.Raft.Communication.Leadership do
     Timer.cancel(t2)
   end
 
-  defun unresponsive_followers(%__MODULE__{follower_responded_times: times},
-                               members :: Members.t,
-                               config :: Config.t) :: [pid] do
+  defun unresponsive_followers(
+    %__MODULE__{follower_responded_times: times},
+    members :: Members.t,
+    config :: Config.t
+  ) :: [pid] do
     since = Monotonic.milliseconds() - max_election_timeout(config)
     Members.other_members_list(members)
     |> Enum.filter(fn pid ->
@@ -99,7 +101,12 @@ defmodule RadishDB.Raft.Communication.Leadership do
     end)
   end
 
-  defun can_safely_remove?(%__MODULE__{} = l, %Members{all: all} = members, follower :: pid, config :: Config.t) :: boolean do
+  defun can_safely_remove?(
+    %__MODULE__{} = l,
+    %Members{all: all} = members,
+    follower :: pid,
+    config :: Config.t
+  ) :: boolean do
     unhealthy_followers = unresponsive_followers(l, members, config)
     if follower in unhealthy_followers do
       # unhealthy follower can always be safely removed
@@ -112,7 +119,10 @@ defmodule RadishDB.Raft.Communication.Leadership do
     end
   end
 
-  defun remove_follower_response_time_entry(%__MODULE__{follower_responded_times: times} = leadership, follower :: pid) :: t do
+  defun remove_follower_response_time_entry(
+    %__MODULE__{follower_responded_times: times} = leadership,
+    follower :: pid
+  ) :: t do
     %__MODULE__{leadership | follower_responded_times: Map.delete(times, follower)}
   end
 
@@ -132,7 +142,10 @@ defmodule RadishDB.Raft.Communication.Leadership do
     end
   end
 
-  defunp quorum_last_reached_at(%__MODULE__{follower_responded_times: times}, %Members{all: all}) :: nil | integer do
+  defunp quorum_last_reached_at(
+    %__MODULE__{follower_responded_times: times},
+    %Members{all: all}
+  ) :: nil | integer do
     n = PidSet.size(all)
     if n <= 1 do
       nil
@@ -141,9 +154,13 @@ defmodule RadishDB.Raft.Communication.Leadership do
     end
   end
 
-  defunp quorum_last_reached_at_impl(times :: %{pid => Monotonic.t}, n_members :: pos_integer) :: nil | Monotonic.t do
+  defunp quorum_last_reached_at_impl(
+    times :: %{pid => Monotonic.t},
+    n_members :: pos_integer
+  ) :: nil | Monotonic.t do
     # To reach quorum we need replies from `n_half_followers` followers.
-    n_half_followers = div(n_members, 2) # Note that, based on the caller's logic, `n_members >= 2` and thus `n_half_followers >= 1`
+    # Note that, based on the caller's logic, `n_members >= 2` and thus `n_half_followers >= 1`
+    n_half_followers = div(n_members, 2)
     # Find a timestamp after which `n_half_followers` replies has come in to this leader.
     n_responded = map_size(times)
     if n_responded >= n_half_followers do
