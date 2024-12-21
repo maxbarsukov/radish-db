@@ -2,7 +2,22 @@ use Croma
 
 defmodule RadishDB.Raft.Log.Entry do
   @moduledoc """
-  Element of node's log
+  The `RadishDB.Raft.Log.Entry` module defines the structure and functionality for log entries in the Raft consensus algorithm.
+
+  Log entries represent commands, queries, configuration changes, leader elections, and membership changes.
+  Each entry is associated with a term number and a log index.
+
+  ## Types
+
+  The log entry type `t` is defined as one of the follows:
+
+  - `{TermNumber.t, LogIndex.t, :command, {GenServer.from, Statable.command_arg, reference}}`
+  - `{TermNumber.t, LogIndex.t, :query, {GenServer.from, Statable.query_arg}}`
+  - `{TermNumber.t, LogIndex.t, :change_config, Config.t}`
+  - `{TermNumber.t, LogIndex.t, :leader_elected, [pid]}`
+  - `{TermNumber.t, LogIndex.t, :add_follower, pid}`
+  - `{TermNumber.t, LogIndex.t, :remove_follower, pid}`
+  - `{TermNumber.t, LogIndex.t, :restore_from_files, pid}`
   """
 
   alias RadishDB.Raft.StateMachine.Statable
@@ -38,6 +53,23 @@ defmodule RadishDB.Raft.Log.Entry do
   defp tag_to_entry_type(6), do: {:ok, :restore_from_files}
   defp tag_to_entry_type(_), do: :error
 
+  @doc """
+  Serializes a log entry into a binary format.
+
+  ## Parameters
+
+    - entry: The log entry to serialize.
+
+  ## Returns
+
+    - The serialized binary representation of the log entry.
+
+  ## Examples
+
+      iex> entry = {1, 1, :command, {self(), :some_command, make_ref()}}
+      iex> RadishDB.Raft.Log.Entry.to_binary(entry)
+      <<...>>  # binary representation
+  """
   defun to_binary({term, index, entry_type, others} :: t) :: binary do
     bin = :erlang.term_to_binary(others)
     size = byte_size(bin)
@@ -52,6 +84,23 @@ defmodule RadishDB.Raft.Log.Entry do
     >>
   end
 
+  @doc """
+  Extracts a log entry from a binary representation.
+
+  ## Parameters
+
+    - bin: The binary data to extract from.
+
+  ## Returns
+
+    - `nil` if insufficient data is available, or `{entry, rest}` where `entry` is the extracted log entry and `rest` is the remaining binary data.
+
+  ## Examples
+
+      iex> bin = <<...>>  # some binary data
+      iex> RadishDB.Raft.Log.Entry.extract_from_binary(bin)
+      {{1, 1, :command, {self(), :some_command, make_ref()}}, rest}
+  """
   defunpt extract_from_binary(bin :: binary) :: nil | {t, rest :: binary} do
     with <<term :: size(64), index :: size(64), type_tag :: size(8), size1 :: size(64)>> <> rest1 <- bin,
          {:ok, entry_type} = tag_to_entry_type(type_tag),
@@ -67,6 +116,29 @@ defmodule RadishDB.Raft.Log.Entry do
     end
   end
 
+  @doc """
+  Reads log entries as a stream from a specified log file.
+
+  ## Parameters
+
+    - log_path: The path to the log file.
+
+  ## Returns
+
+    - A stream of log entries.
+
+  ## Examples
+
+      iex> entries = RadishDB.Raft.Log.Entry.read_as_stream("log_file_path")
+      # Stream of log entries
+  """
+  def read_as_stream(log_path) do
+    File.stream!(log_path, [], 4096)
+    |> Stream.transform(<<>>, fn(bin, carryover) ->
+      extract_multiple_from_binary(carryover <> bin)
+    end)
+  end
+
   defunp extract_multiple_from_binary(bin :: binary) :: {[t], rest :: binary} do
     extract_multiple_from_binary_impl(bin, [])
   end
@@ -78,13 +150,22 @@ defmodule RadishDB.Raft.Log.Entry do
     end
   end
 
-  def read_as_stream(log_path) do
-    File.stream!(log_path, [], 4096)
-    |> Stream.transform(<<>>, fn(bin, carryover) ->
-      extract_multiple_from_binary(carryover <> bin)
-    end)
-  end
+  @doc """
+  Reads the index of the last log entry from a specified log file.
 
+  ## Parameters
+
+    - log_path: The path to the log file.
+
+  ## Returns
+
+    - `nil` if the log is empty or an error occurs, otherwise returns the index of the last log entry.
+
+  ## Examples
+
+      iex> last_index = RadishDB.Raft.Log.Entry.read_last_entry_index("log_file_path")
+      5
+  """
   defun read_last_entry_index(log_path :: Path.t) :: nil | LogIndex.t do
     case :file.open(log_path, [:raw, :binary]) do
       {:ok, f}    -> read_last_entry_index_impl(f, File.stat!(log_path).size)
@@ -92,6 +173,18 @@ defmodule RadishDB.Raft.Log.Entry do
     end
   end
 
+  @doc """
+  Internal function that reads the last entry index based on the size of the log file.
+
+  ## Parameters
+
+    - f: The file descriptor of the log file.
+    - size: The size of the log file.
+
+  ## Returns
+
+    - The index of the last log entry or `nil` if the log is empty.
+  """
   defp read_last_entry_index_impl(_f, size) when size < 8, do: nil
 
   defp read_last_entry_index_impl(f, size) do
@@ -102,6 +195,19 @@ defmodule RadishDB.Raft.Log.Entry do
     read_last_entry_index_by_start_offset(f, binsize1, last_entry_start_offset)
   end
 
+  @doc """
+  Internal function that reads the last entry index based on the start offset.
+
+  ## Parameters
+
+    - f: The file descriptor of the log file.
+    - binsize1: The size of the last entry.
+    - last_entry_start_offset: The starting offset of the last entry.
+
+  ## Returns
+
+    - The index of the last log entry or `nil` if there is a mismatch.
+  """
   defp read_last_entry_index_by_start_offset(_f, _binsize1, last_entry_start_offset)
     when last_entry_start_offset < 0,
     do: nil
