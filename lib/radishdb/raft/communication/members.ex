@@ -19,8 +19,8 @@ defmodule RadishDB.Raft.Communication.Members do
   """
 
   alias RadishDB.Raft.Log.Entry
-  alias RadishDB.Raft.Utils.Collections.PidSet
   alias RadishDB.Raft.Types.LogIndex
+  alias RadishDB.Raft.Utils.Collections.PidSet
 
   use Croma.Struct, fields: [
     leader:                        TG.nilable(Croma.Pid),
@@ -215,7 +215,13 @@ defmodule RadishDB.Raft.Communication.Members do
       iex> RadishDB.Raft.Communication.Members.force_remove_member(members, pid_to_remove)
       %RadishDB.Raft.Communication.Members{...}
   """
-  defun force_remove_member(%__MODULE__{all: all, uncommitted_membership_change: mchange, pending_leader_change: lchange} = m, pid :: pid) :: t do
+  defun force_remove_member(
+    %__MODULE__{
+      all: all,
+      uncommitted_membership_change: mchange,
+      pending_leader_change: lchange
+    } = m, pid :: pid
+  ) :: t do
     mchange2 =
       case mchange do
         {_term, _index, :add_follower   , ^pid} -> nil

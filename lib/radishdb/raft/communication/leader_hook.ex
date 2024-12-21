@@ -10,7 +10,7 @@ defmodule RadishDB.Raft.Communication.LeaderHook do
   @type neglected :: any
 
   @doc """
-  Hook to be called when a command submitted by `RaftedValue.command/4` is committed.
+  Hook to be called when a command submitted by `RadishDB.Raft.Node.command/4` is committed.
   """
   @callback on_command_committed(
     data_before_command :: Statable.data,
@@ -19,7 +19,7 @@ defmodule RadishDB.Raft.Communication.LeaderHook do
     data_after_command  :: Statable.data) :: neglected
 
   @doc """
-  Hook to be called when a query given by `RaftedValue.query/3` is executed.
+  Hook to be called when a query given by `RadishDB.Raft.Node.query/3` is executed.
   """
   @callback on_query_answered(
     data      :: Statable.data,
@@ -28,12 +28,12 @@ defmodule RadishDB.Raft.Communication.LeaderHook do
 
   @doc """
   Hook to be called when a new follower is added to a consensus group
-  by `RaftedValue.start_link/2` with `:join_existing_consensus_group` specified.
+  by `RadishDB.Raft.Node.start_link/2` with `:join_existing_consensus_group` specified.
   """
   @callback on_follower_added(Statable.data, pid) :: neglected
 
   @doc """
-  Hook to be called when a follower is removed from a consensus group by `RaftedValue.remove_follower/2`.
+  Hook to be called when a follower is removed from a consensus group by `RadishDB.Raft.Node.remove_follower/2`.
   """
   @callback on_follower_removed(Statable.data, pid) :: neglected
 
