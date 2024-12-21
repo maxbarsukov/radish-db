@@ -87,24 +87,6 @@ defmodule RadishDB.Raft.Log.Entry do
     >>
   end
 
-  @doc """
-  Extracts a log entry from a binary representation.
-
-  ## Parameters
-
-    - bin: The binary data to extract from.
-
-  ## Returns
-
-    - `nil` if insufficient data is available, or
-      `{entry, rest}` where `entry` is the extracted log entry and `rest` is the remaining binary data.
-
-  ## Examples
-
-      iex> bin = <<...>>  # some binary data
-      iex> RadishDB.Raft.Log.Entry.extract_from_binary(bin)
-      {{1, 1, :command, {self(), :some_command, make_ref()}}, rest}
-  """
   defunpt extract_from_binary(bin :: binary) :: nil | {t, rest :: binary} do
     with <<term::size(64), index::size(64), type_tag::size(8), size1::size(64)>> <> rest1 <- bin,
          {:ok, entry_type} = tag_to_entry_type(type_tag),
@@ -178,18 +160,6 @@ defmodule RadishDB.Raft.Log.Entry do
     end
   end
 
-  @doc """
-  Internal function that reads the last entry index based on the size of the log file.
-
-  ## Parameters
-
-    - f: The file descriptor of the log file.
-    - size: The size of the log file.
-
-  ## Returns
-
-    - The index of the last log entry or `nil` if the log is empty.
-  """
   defp read_last_entry_index_impl(_f, size) when size < 8, do: nil
 
   defp read_last_entry_index_impl(f, size) do
@@ -200,19 +170,6 @@ defmodule RadishDB.Raft.Log.Entry do
     read_last_entry_index_by_start_offset(f, binsize1, last_entry_start_offset)
   end
 
-  @doc """
-  Internal function that reads the last entry index based on the start offset.
-
-  ## Parameters
-
-    - f: The file descriptor of the log file.
-    - binsize1: The size of the last entry.
-    - last_entry_start_offset: The starting offset of the last entry.
-
-  ## Returns
-
-    - The index of the last log entry or `nil` if there is a mismatch.
-  """
   defp read_last_entry_index_by_start_offset(_f, _binsize1, last_entry_start_offset)
        when last_entry_start_offset < 0,
        do: nil
