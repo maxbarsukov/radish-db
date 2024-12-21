@@ -11,11 +11,11 @@ defmodule RadishDB.Raft.StateMachine.Statable do
   This is a design decision made to support arbitrary data structure while keeping Raft logs compact.
   """
 
-  @type data        :: any
+  @type data :: any
   @type command_arg :: any
   @type command_ret :: any
-  @type query_arg   :: any
-  @type query_ret   :: any
+  @type query_arg :: any
+  @type query_ret :: any
 
   @doc """
   Creates an initial value to be stored.

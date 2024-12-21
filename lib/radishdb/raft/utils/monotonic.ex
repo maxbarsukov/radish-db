@@ -6,7 +6,7 @@ defmodule RadishDB.Raft.Utils.Monotonic do
   """
 
   @type t :: integer
-  defun valid?(v :: term) :: boolean, do: is_integer(v)
+  defun(valid?(v :: term) :: boolean, do: is_integer(v))
 
   defun milliseconds() :: t do
     System.monotonic_time(:millisecond)

@@ -26,7 +26,6 @@ defmodule RadishDB.MixProject do
         "coveralls.cobertura": :test
       ],
       test_coverage: [tool: ExCoveralls],
-
       deps: deps(),
       aliases: aliases(),
 

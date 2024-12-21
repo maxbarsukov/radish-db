@@ -17,7 +17,9 @@ defmodule RadishDB.Raft.Utils.Timer do
         after
           0 -> :ok
         end
-      _remaining_time -> :ok
+
+      _remaining_time ->
+        :ok
     end
   end
 end

@@ -13,9 +13,9 @@ defmodule RadishDB.Raft.Communication.Communicable do
 
   Implementing this behavior allows for flexibility in how messages are sent and received, enabling different communication strategies if needed.
   """
-  @callback cast(server :: GenServer.server, msg :: any) :: :ok
+  @callback cast(server :: GenServer.server(), msg :: any) :: :ok
 
-  @callback reply(from :: GenServer.from, reply :: any) :: :ok
+  @callback reply(from :: GenServer.from(), reply :: any) :: :ok
 end
 
 defmodule RadishDB.Raft.Communication.RemoteMessageGateway do

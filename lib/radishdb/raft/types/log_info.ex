@@ -5,8 +5,9 @@ defmodule RadishDB.Raft.Types.LogInfo do
 
   alias RadishDB.Raft.Types.{LogIndex, TermNumber}
 
-  use Croma.SubtypeOfTuple, elem_modules: [
-    TermNumber,
-    LogIndex
-  ]
+  use Croma.SubtypeOfTuple,
+    elem_modules: [
+      TermNumber,
+      LogIndex
+    ]
 end

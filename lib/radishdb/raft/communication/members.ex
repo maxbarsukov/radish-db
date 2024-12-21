@@ -22,12 +22,15 @@ defmodule RadishDB.Raft.Communication.Members do
   alias RadishDB.Raft.Types.LogIndex
   alias RadishDB.Raft.Utils.Collections.PidSet
 
-  use Croma.Struct, fields: [
-    leader:                        TG.nilable(Croma.Pid),
-    all:                           PidSet, # replicated using raft logs (i.e. reproducible from logs)
-    uncommitted_membership_change: TG.nilable(Entry),  # replicated using raft logs (i.e. reproducible from logs)
-    pending_leader_change:         TG.nilable(Croma.Pid),
-  ]
+  use Croma.Struct,
+    fields: [
+      leader: TG.nilable(Croma.Pid),
+      # replicated using raft logs (i.e. reproducible from logs)
+      all: PidSet,
+      # replicated using raft logs (i.e. reproducible from logs)
+      uncommitted_membership_change: TG.nilable(Entry),
+      pending_leader_change: TG.nilable(Croma.Pid)
+    ]
 
   @doc """
   Creates a new instance of the members struct for a lonely leader (the only member in the cluster).
@@ -38,7 +41,11 @@ defmodule RadishDB.Raft.Communication.Members do
       %RadishDB.Raft.Communication.Members{leader: #PID<0.123.0>, all: #PidSet<...>, uncommitted_membership_change: nil, pending_leader_change: nil}
   """
   defun new_for_lonely_leader() :: t do
-    %__MODULE__{leader: self(), all: PidSet.put(PidSet.new(), self()), uncommitted_membership_change: nil}
+    %__MODULE__{
+      leader: self(),
+      all: PidSet.put(PidSet.new(), self()),
+      uncommitted_membership_change: nil
+    }
   end
 
   @doc """
@@ -96,14 +103,21 @@ defmodule RadishDB.Raft.Communication.Members do
       iex> RadishDB.Raft.Communication.Members.start_adding_follower(members, {1, 1, :add_follower, new_follower_pid})
       %RadishDB.Raft.Communication.Members{...}
   """
-  defun start_adding_follower(%__MODULE__{all: all} = m,
-                              {_term, _index, :add_follower, new_follower} = entry) :: R.t(t) do
+  defun start_adding_follower(
+          %__MODULE__{all: all} = m,
+          {_term, _index, :add_follower, new_follower} = entry
+        ) :: R.t(t) do
     reject_if_membership_changing(m, fn ->
       reject_if_leader_changing(m, fn ->
         if PidSet.member?(all, new_follower) do
           {:error, :already_joined}
         else
-          %__MODULE__{m | all: PidSet.put(all, new_follower), uncommitted_membership_change: entry} |> R.pure()
+          %__MODULE__{
+            m
+            | all: PidSet.put(all, new_follower),
+              uncommitted_membership_change: entry
+          }
+          |> R.pure()
         end
       end)
     end)
@@ -128,14 +142,26 @@ defmodule RadishDB.Raft.Communication.Members do
       iex> RadishDB.Raft.Communication.Members.start_removing_follower(members, {1, 1, :remove_follower, old_follower_pid})
       %RadishDB.Raft.Communication.Members{...}
   """
-  defun start_removing_follower(%__MODULE__{all: all} = m,
-                                {_term, _index, :remove_follower, old_follower} = entry) :: R.t(t) do
+  defun start_removing_follower(
+          %__MODULE__{all: all} = m,
+          {_term, _index, :remove_follower, old_follower} = entry
+        ) :: R.t(t) do
     reject_if_membership_changing(m, fn ->
       reject_if_leader_changing(m, fn ->
         cond do
-          old_follower == self()            -> {:error, :cannot_remove_leader}
-          PidSet.member?(all, old_follower) -> %__MODULE__{m | all: PidSet.delete(all, old_follower), uncommitted_membership_change: entry} |> R.pure()
-          true                              -> {:error, :not_member}
+          old_follower == self() ->
+            {:error, :cannot_remove_leader}
+
+          PidSet.member?(all, old_follower) ->
+            %__MODULE__{
+              m
+              | all: PidSet.delete(all, old_follower),
+                uncommitted_membership_change: entry
+            }
+            |> R.pure()
+
+          true ->
+            {:error, :not_member}
         end
       end)
     end)
@@ -160,14 +186,23 @@ defmodule RadishDB.Raft.Communication.Members do
       iex> RadishDB.Raft.Communication.Members.start_replacing_leader(members, new_leader_pid)
       %RadishDB.Raft.Communication.Members{...}
   """
-  defun start_replacing_leader(%__MODULE__{all: all} = m,
-                               new_leader :: nil | pid) :: R.t(t) do
+  defun start_replacing_leader(
+          %__MODULE__{all: all} = m,
+          new_leader :: nil | pid
+        ) :: R.t(t) do
     reject_if_membership_changing(m, fn ->
       cond do
-        is_nil(new_leader)              -> %__MODULE__{m | pending_leader_change: nil} |> R.pure()
-        new_leader == self()            -> {:error, :already_leader}
-        PidSet.member?(all, new_leader) -> %__MODULE__{m | pending_leader_change: new_leader} |> R.pure()
-        true                            -> {:error, :not_member}
+        is_nil(new_leader) ->
+          %__MODULE__{m | pending_leader_change: nil} |> R.pure()
+
+        new_leader == self() ->
+          {:error, :already_leader}
+
+        PidSet.member?(all, new_leader) ->
+          %__MODULE__{m | pending_leader_change: new_leader} |> R.pure()
+
+        true ->
+          {:error, :not_member}
       end
     end)
   end
@@ -190,10 +225,13 @@ defmodule RadishDB.Raft.Communication.Members do
       iex> RadishDB.Raft.Communication.Members.membership_change_committed(members, 1)
       %RadishDB.Raft.Communication.Members{...}
   """
-  defun membership_change_committed(%__MODULE__{uncommitted_membership_change: change} = m, index :: LogIndex.t) :: t do
+  defun membership_change_committed(
+          %__MODULE__{uncommitted_membership_change: change} = m,
+          index :: LogIndex.t()
+        ) :: t do
     case change do
       {_, i, _, _} when i <= index -> %__MODULE__{m | uncommitted_membership_change: nil}
-      _                            -> m
+      _ -> m
     end
   end
 
@@ -216,22 +254,25 @@ defmodule RadishDB.Raft.Communication.Members do
       %RadishDB.Raft.Communication.Members{...}
   """
   defun force_remove_member(
-    %__MODULE__{
-      all: all,
-      uncommitted_membership_change: mchange,
-      pending_leader_change: lchange
-    } = m, pid :: pid
-  ) :: t do
+          %__MODULE__{
+            all: all,
+            uncommitted_membership_change: mchange,
+            pending_leader_change: lchange
+          } = m,
+          pid :: pid
+        ) :: t do
     mchange2 =
       case mchange do
-        {_term, _index, :add_follower   , ^pid} -> nil
+        {_term, _index, :add_follower, ^pid} -> nil
         {_term, _index, :remove_follower, ^pid} -> nil
-        _                                       -> mchange
+        _ -> mchange
       end
-    %__MODULE__{m |
-      all:                           PidSet.delete(all, pid),
-      uncommitted_membership_change: mchange2,
-      pending_leader_change:         (if lchange == pid, do: nil, else: lchange),
+
+    %__MODULE__{
+      m
+      | all: PidSet.delete(all, pid),
+        uncommitted_membership_change: mchange2,
+        pending_leader_change: if(lchange == pid, do: nil, else: lchange)
     }
   end
 

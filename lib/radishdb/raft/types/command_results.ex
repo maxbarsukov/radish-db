@@ -10,7 +10,7 @@ defmodule RadishDB.Raft.Types.CommandResults do
 
   alias RadishDB.Raft.Types.CommandId
 
-  @type cmd_id :: CommandId.t
+  @type cmd_id :: CommandId.t()
   @type t :: {:queue.queue(cmd_id), %{cmd_id => any}}
 
   defun valid?(v :: any) :: boolean do
@@ -35,12 +35,15 @@ defmodule RadishDB.Raft.Types.CommandResults do
   @doc """
   Adds a new command result to the structure, managing the queue and map size according to the specified maximum size.
   """
-  defun put({q1, m1} :: t,
-            cmd_id   :: cmd_id,
-            result   :: any,
-            max_size :: pos_integer) :: t do
+  defun put(
+          {q1, m1} :: t,
+          cmd_id :: cmd_id,
+          result :: any,
+          max_size :: pos_integer
+        ) :: t do
     q2 = :queue.in(cmd_id, q1)
     m2 = Map.put(m1, cmd_id, result)
+
     if map_size(m2) <= max_size do
       {q2, m2}
     else
