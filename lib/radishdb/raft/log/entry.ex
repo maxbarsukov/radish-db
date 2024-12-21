@@ -20,6 +20,7 @@ defmodule RadishDB.Raft.Log.Entry do
   - `{TermNumber.t, LogIndex.t, :restore_from_files, pid}`
   """
 
+  alias RadishDB.Raft.Types.Error.RedundantSizeInformationError
   alias RadishDB.Raft.StateMachine.Statable
   alias RadishDB.Raft.Types.{Config, LogIndex, TermNumber}
 
@@ -93,7 +94,8 @@ defmodule RadishDB.Raft.Log.Entry do
 
   ## Returns
 
-    - `nil` if insufficient data is available, or `{entry, rest}` where `entry` is the extracted log entry and `rest` is the remaining binary data.
+    - `nil` if insufficient data is available, or
+      `{entry, rest}` where `entry` is the extracted log entry and `rest` is the remaining binary data.
 
   ## Examples
 
@@ -108,7 +110,7 @@ defmodule RadishDB.Raft.Log.Entry do
       if size1 == size2 do
         {{term, index, entry_type, :erlang.binary_to_term(others_bin)}, rest2}
       else
-        raise "redundant size information in log entry not matched"
+        raise RedundantSizeInformationError, [message: "redundant size information in log entry not matched"]
       end
     else
       # insufficient input, can be retried with subsequent binary data
