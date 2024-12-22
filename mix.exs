@@ -12,7 +12,7 @@ defmodule RadishDB.MixProject do
     [
       app: :radishdb,
       elixir: "~> 1.17",
-      escript: escript(),
+      # escript: escript(),
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -41,18 +41,18 @@ defmodule RadishDB.MixProject do
     ]
   end
 
-  defp escript do
-    [
-      main_module: RadishDB.Main,
-      path: "./out/radishdb",
-      name: "radishdb"
-    ]
-  end
+  # defp escript do
+  #   [
+  #     main_module: RadishDB.Main,
+  #     path: "./out/radishdb",
+  #     name: "radishdb"
+  #   ]
+  # end
 
   def application do
     [
       applications: [:croma, :logger],
-      mod: {RadishDB.Main, []}
+      # mod: {RadishDB.Main, []}
     ]
   end
 
