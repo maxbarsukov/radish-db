@@ -51,7 +51,7 @@ defmodule RadishDB.MixProject do
 
   def application do
     [
-      applications: [:croma, :logger],
+      extra_applications: [:croma, :logger]
       # mod: {RadishDB.Main, []}
     ]
   end
