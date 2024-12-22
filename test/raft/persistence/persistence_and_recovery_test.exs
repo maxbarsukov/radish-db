@@ -3,7 +3,7 @@ defmodule RadishDB.Raft.Persistence.PersistenceAndRecoveryTest do
   Testing snapshots and log persistence
   """
 
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   alias RadishDB.Raft.Log.Entry
   alias RadishDB.Raft.Persistence.{Snapshot, Store}
 
