@@ -162,7 +162,7 @@ defmodule RadishDB.Raft.RPCServer do
     %Snapshot{
       members: Members.new_for_lonely_leader(),
       term: 0,
-      last_committed_entry: {0, 1, :leader_elected2, [self()]},
+      last_committed_entry: {0, 1, :leader_elected, [self()]},
       data: config.data_module.new(),
       command_results: CommandResults.new(),
       config: config
@@ -1198,12 +1198,7 @@ defmodule RadishDB.Raft.RPCServer do
       {_term, _index, :change_config, new_config} ->
         %State{state | config: new_config}
 
-      # Obsolete format, newer version uses `:leader_elected2`
-      {_term, _index, :leader_elected, leader_pid} ->
-        if leader_pid == self(), do: hook.on_elected(data)
-        state
-
-      {_term, _index, :leader_elected2, [leader_pid | _follower_pids]} ->
+      {_term, _index, :leader_elected, [leader_pid | _follower_pids]} ->
         if leader_pid == self(), do: hook.on_elected(data)
         state
 

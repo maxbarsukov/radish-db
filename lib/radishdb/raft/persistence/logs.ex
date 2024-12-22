@@ -241,7 +241,7 @@ defmodule RadishDB.Raft.Persistence.Logs do
     followers_map = Map.new(follower_pids, fn follower -> {follower, follower_index_pair} end)
 
     %__MODULE__{logs | followers: followers_map}
-    |> add_entry(store, fn i -> {term, i, :leader_elected2, [self() | follower_pids]} end)
+    |> add_entry(store, fn i -> {term, i, :leader_elected, [self() | follower_pids]} end)
   end
 
   defun add_entry_on_restored_from_files(logs :: t, term :: TermNumber.t()) :: {t, Entry.t()} do
@@ -355,7 +355,7 @@ defmodule RadishDB.Raft.Persistence.Logs do
       {_t, _i, :restore_from_files, pid} ->
         %Members{members | all: PidSet.put(PidSet.new(), pid), uncommitted_membership_change: nil}
 
-      {_t, _i, :leader_elected2, pids} ->
+      {_t, _i, :leader_elected, pids} ->
         %Members{members | all: PidSet.from_list(pids)}
 
       _ ->
