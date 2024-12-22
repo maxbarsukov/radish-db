@@ -15,7 +15,7 @@ defmodule RadishDB.Raft.Persistence.Snapshot do
   alias RadishDB.Raft.Persistence.SnapshotMetadata
   alias RadishDB.Raft.Persistence.Store
   alias RadishDB.Raft.Types.RPC.InstallSnapshot
-  alias RadishDB.Raft.Types.{CommandResults, TermNumber}
+  alias RadishDB.Raft.Types.{CommandResults, Config, TermNumber}
 
   use Croma.Struct,
     fields: [
@@ -39,7 +39,7 @@ defmodule RadishDB.Raft.Persistence.Snapshot do
   returning the snapshot, metadata, and log entries if available.
   """
   defun read_latest_snapshot_and_logs_if_available(dir :: Path.t()) ::
-          nil | {t, SnapshotMetadata.t(), Enum.t(Entry.t())} do
+          nil | {t, SnapshotMetadata.t(), Enumerable.t(Entry.t())} do
     case find_snapshot_and_log_files(dir) do
       nil ->
         nil

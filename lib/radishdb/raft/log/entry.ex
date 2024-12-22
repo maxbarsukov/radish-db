@@ -120,7 +120,7 @@ defmodule RadishDB.Raft.Log.Entry do
       # Stream of log entries
   """
   def read_as_stream(log_path) do
-    File.stream!(log_path, [], 4096)
+    File.stream!(log_path, 4096)
     |> Stream.transform(<<>>, fn bin, carryover ->
       extract_multiple_from_binary(carryover <> bin)
     end)

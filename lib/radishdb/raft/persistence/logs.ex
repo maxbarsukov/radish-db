@@ -40,7 +40,7 @@ defmodule RadishDB.Raft.Persistence.Logs do
   """
   defun new_for_lonely_leader(
           last_committed_entry :: Entry.t(),
-          entries_to_append :: Enum.t(Entry.t())
+          entries_to_append :: Enumerable.t(Entry.t())
         ) :: t do
     logs = new_with_last_entry(last_committed_entry) |> Map.put(:followers, %{})
 
