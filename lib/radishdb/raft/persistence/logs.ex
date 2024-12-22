@@ -2,7 +2,7 @@ use Croma
 alias Croma.TypeGen, as: TG
 alias Croma.Result, as: R
 
-defmodule RadishDB.Raft.Log.Logs do
+defmodule RadishDB.Raft.Persistence.Logs do
   @moduledoc """
   Represents the log entries in the Raft consensus algorithm.
 
