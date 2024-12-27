@@ -25,6 +25,9 @@ defmodule RadishDB.MixProject do
         "coveralls.html": :test,
         "coveralls.cobertura": :test
       ],
+      dialyzer: [
+        ignore_warnings: ".dialyzer_ignore.exs"
+      ],
       test_coverage: [tool: ExCoveralls],
       deps: deps(),
       aliases: aliases(),
