@@ -211,7 +211,7 @@ defmodule RadishDB.Raft.RPCServer do
 
     {logs3, entries_to_apply} = Logs.commit_to_latest(logs2, store)
     state1 = build_state_from_snapshot(snapshot, logs3, store)
-    Process.put(:radishdb_raft_rpc_server_restoring, true)
+    Process.put(:radish_db_raft_rpc_server_restoring, true)
     # `entry_restore` results in a no-op and thus neglected
     state2 =
       Enum.reduce(
@@ -220,7 +220,7 @@ defmodule RadishDB.Raft.RPCServer do
         &leader_apply_committed_log_entry_without_membership_change/2
       )
 
-    Process.delete(:radishdb_raft_rpc_server_restoring)
+    Process.delete(:radish_db_raft_rpc_server_restoring)
     run_restored_hook(state2)
     state2
   end
