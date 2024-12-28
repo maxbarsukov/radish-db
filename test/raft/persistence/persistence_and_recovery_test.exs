@@ -7,7 +7,7 @@ defmodule RadishDB.Raft.Persistence.PersistenceAndRecoveryTest do
   alias RadishDB.Raft.Log.Entry
   alias RadishDB.Raft.Persistence.{Snapshot, Store}
 
-  @config RadishDB.Raft.Node.make_config(JustAnInt, leader_hook_module: MessageSendingHook)
+  @config RadishDB.Raft.Node.make_config(SimpleInt, leader_hook_module: MessageSendingHook)
   @name :foo
   @tmp_dir "tmp"
 

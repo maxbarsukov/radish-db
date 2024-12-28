@@ -25,7 +25,7 @@ defmodule RadishDB.Raft.NodeTest do
     end)
   end
 
-  @conf RadishDB.Raft.Node.make_config(JustAnInt,
+  @conf RadishDB.Raft.Node.make_config(SimpleInt,
           heartbeat_timeout: 100,
           election_timeout: 500,
           election_timeout_clock_drift_margin: 100,
@@ -588,8 +588,8 @@ defmodule RadishDB.Raft.NodeTest do
           {:ok, ret} ->
             {expected_ret, new_value} =
               case cmd do
-                {:command, arg} -> JustAnInt.command(value, arg)
-                {:query, arg} -> {JustAnInt.query(value, arg), value}
+                {:command, arg} -> SimpleInt.command(value, arg)
+                {:query, arg} -> {SimpleInt.query(value, arg), value}
               end
 
             assert ret == expected_ret
@@ -920,7 +920,7 @@ defmodule RadishDB.Raft.NodeTest do
       }
       |> assert_invariants()
 
-    client_pid = spawn_link(fn -> client_process_loop(initial_members, JustAnInt.new()) end)
+    client_pid = spawn_link(fn -> client_process_loop(initial_members, SimpleInt.new()) end)
     {context, client_pid}
   end
 
