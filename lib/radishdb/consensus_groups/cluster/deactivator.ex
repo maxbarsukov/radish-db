@@ -81,7 +81,8 @@ defmodule RadishDB.ConsensusGroups.Cluster.Deactivator do
 
       other_members ->
         case pick_next_leader(local_member, other_members) do
-          nil -> nil  # No suitable member found; waiting and retrying
+          # No suitable member found; waiting and retrying
+          nil -> nil
           next_leader -> replace_leader(local_member, next_leader)
         end
 

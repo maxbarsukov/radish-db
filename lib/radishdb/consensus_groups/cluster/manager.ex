@@ -183,10 +183,20 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
         node_to_host_initial_leader = node_or_nil || Node.self()
 
         if node_to_host_initial_leader == Node.self() do
-          start_leader_and_tell_other_nodes_to_start_follower(name, raft_config, member_nodes, state)
+          start_leader_and_tell_other_nodes_to_start_follower(
+            name,
+            raft_config,
+            member_nodes,
+            state
+          )
         else
           delegate_leader_to_node(node_to_host_initial_leader, name, raft_config, member_nodes)
-          State.update_being_added_consensus_groups(state, name, {:leader_delegated_to, node_to_host_initial_leader})
+
+          State.update_being_added_consensus_groups(
+            state,
+            name,
+            {:leader_delegated_to, node_to_host_initial_leader}
+          )
         end
 
       {:error, :process_exists} ->
@@ -199,7 +209,9 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
   end
 
   defp log_inactive_state(name) do
-    Logger.info("manager process is not active; cannot start member processes for consensus group #{name}")
+    Logger.info(
+      "manager process is not active; cannot start member processes for consensus group #{name}"
+    )
   end
 
   defp start_leader_and_tell_other_nodes_to_start_follower(name, raft_config, member_nodes, state) do
