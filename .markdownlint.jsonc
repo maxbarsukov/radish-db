@@ -27,5 +27,8 @@
   "MD034": false,
 
   // I want to add a picture at the top of README...
-  "MD041": false
+  "MD041": false,
+
+  // MDLint doesn't really understand GitHub markdown
+  "MD053": false
 }

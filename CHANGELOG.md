@@ -18,5 +18,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 Please see `git log`
 
-[Unreleased]: https://github.com/radish-bdd/radish/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/radish-bdd/radish/compare/v0.1.1...HEAD
+[v0.1.1]: https://github.com/maxbarsukov/radish-db/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/maxbarsukov/radish-db/compare/03a4050964fad94937f3a4160995a037f82e1d39...v0.1.0
