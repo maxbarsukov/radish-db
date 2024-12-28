@@ -22,13 +22,15 @@ defmodule RadishDB.ConsensusGroups.Cluster.RecoveryTest do
     @impl true
     def make(name) do
       case name do
-        Cluster -> Cluster.make_raft_config()
-        _                 ->
-          RaftNode.make_config(JustAnInt, [
+        Cluster ->
+          Cluster.make_raft_config()
+
+        _ ->
+          RaftNode.make_config(JustAnInt,
             heartbeat_timeout: 500,
             # Disk I/O is sometimes rather slow, resulting in more frequent leader elections
-            election_timeout: 2500,
-          ])
+            election_timeout: 2500
+          )
       end
     end
   end
@@ -36,13 +38,15 @@ defmodule RadishDB.ConsensusGroups.Cluster.RecoveryTest do
   setup do
     # For clean testing we restart :radish_db
     case Application.stop(:radish_db) do
-      :ok                                   -> :ok
+      :ok -> :ok
       {:error, {:not_started, :radish_db}} -> :ok
     end
+
     PersistenceSetting.turn_on_persistence(Node.self())
     Application.put_env(:radish_db, :raft_config, ConfigMaker)
     File.rm_rf!("tmp")
     :ok = Application.start(:radish_db)
+
     on_exit(fn ->
       Application.delete_env(:radish_db, :per_member_options)
       File.rm_rf!("tmp")
@@ -64,12 +68,13 @@ defmodule RadishDB.ConsensusGroups.Cluster.RecoveryTest do
     end)
 
     start_activate_stop(fn ->
-      assert GroupApplication.consensus_groups == %{}
+      assert GroupApplication.consensus_groups() == %{}
       assert Supervisor.which_children(ConsensusMemberSupervisor) == []
       assert GroupApplication.add_consensus_group(:c1) == :ok
       [{_, pid, _, _}] = Supervisor.which_children(ConsensusMemberSupervisor)
       assert Process.info(pid)[:registered_name] == :c1
     end)
+
     refute Process.whereis(:c1)
 
     start_activate_stop(fn ->
@@ -78,6 +83,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.RecoveryTest do
       assert Process.info(pid)[:registered_name] == :c1
       :ok = GroupApplication.remove_consensus_group(:c1)
     end)
+
     refute Process.whereis(:c1)
 
     start_activate_stop(fn ->

@@ -77,7 +77,7 @@ defmodule RadishDB.ConsensusGroups.Config.PerMemberOptionsMaker.Persist do
   alias RadishDB.Raft.Node, as: RaftNode
 
   @behaviour PerMemberOptionsMaker
-  defun make(name :: atom) :: [RaftNode.option] do
+  defun make(name :: atom) :: [RaftNode.option()] do
     [persistence_dir: Path.join(["tmp", Atom.to_string(Node.self()), Atom.to_string(name)])]
   end
 end
@@ -93,7 +93,7 @@ defmodule RadishDB.ConsensusGroups.Config.PerMemberOptionsMaker.Raise do
   alias RadishDB.Raft.Node, as: RaftNode
 
   @behaviour PerMemberOptionsMaker
-  defun make(name :: atom) :: [RaftNode.option] do
+  defun make(name :: atom) :: [RaftNode.option()] do
     if name == Cluster do
       []
     else
@@ -113,7 +113,7 @@ defmodule RadishDB.ConsensusGroups.Config.PerMemberOptionsMaker.Timeout do
   alias RadishDB.Raft.Node, as: RaftNode
 
   @behaviour PerMemberOptionsMaker
-  defun make(name :: atom) :: [RaftNode.option] do
+  defun make(name :: atom) :: [RaftNode.option()] do
     if name == Cluster do
       []
     else
@@ -136,6 +136,7 @@ defmodule SlaveNode do
 
   defmacro at(call, nodename) do
     {{:., _, [mod, fun]}, _, args} = call
+
     quote bind_quoted: [nodename: nodename, mod: mod, fun: fun, args: args] do
       if nodename == Node.self() do
         apply(mod, fun, args)
@@ -156,13 +157,16 @@ defmodule SlaveNode do
     nodes_before = Node.list()
     {:ok, hostname} = :inet.gethostname()
     {:ok, longname} = :slave.start_link(hostname, shortname)
-    true            = :code.set_path(:code.get_path()) |> at(longname)
+    true = :code.set_path(:code.get_path()) |> at(longname)
+
     case persist do
       :random -> PersistenceSetting.randomly_pick_whether_to_persist(longname)
-      :yes    -> PersistenceSetting.turn_on_persistence(longname)
-      :no     -> :ok
+      :yes -> PersistenceSetting.turn_on_persistence(longname)
+      :no -> :ok
     end
+
     {:ok, _} = Application.ensure_all_started(:radish_db) |> at(longname)
+
     Enum.each(nodes_before, fn n ->
       Node.connect(n) |> at(longname)
     end)
@@ -185,21 +189,21 @@ defmodule SlaveNode do
     wait_for_activation(node, 10)
   end
 
-  defp wait_for_activation(_, 0), do: raise "activation not completed!"
+  defp wait_for_activation(_, 0), do: raise("activation not completed!")
+
   defp wait_for_activation(node, tries_remaining) do
-    try do
-      state = :sys.get_state({Manager, node})
-      if Manager.State.phase(state) == :active do
-        :ok
-      else
-        :timer.sleep(1_000)
-        wait_for_activation(node, tries_remaining - 1)
-      end
-    catch
-      :exit, {:noproc, _} ->
-        :timer.sleep(1_000)
-        wait_for_activation(node, tries_remaining - 1)
+    state = :sys.get_state({Manager, node})
+
+    if Manager.State.phase(state) == :active do
+      :ok
+    else
+      :timer.sleep(1_000)
+      wait_for_activation(node, tries_remaining - 1)
     end
+  catch
+    :exit, {:noproc, _} ->
+      :timer.sleep(1_000)
+      wait_for_activation(node, tries_remaining - 1)
   end
 
   def deactivate_node(node) do
@@ -212,6 +216,7 @@ defmodule SlaveNode do
           :timer.sleep(5_000)
           RaftNode.status({Cluster, node})
       end
+
     assert Process.alive?(pid) |> at(node)
     assert GroupApplication.deactivate() |> at(node) == :ok
     assert GroupApplication.deactivate() |> at(node) == {:error, :inactive}
@@ -221,6 +226,7 @@ defmodule SlaveNode do
     if node == Node.self() do
       # Wait for worker process to exit (if any)
       state = :sys.get_state(Manager)
+
       [state.adjust_worker, state.activate_worker, state.deactivate_worker]
       |> Enum.reject(&is_nil/1)
       |> Enum.each(fn p ->
@@ -277,7 +283,7 @@ defmodule TestCaseTemplate do
   setup do
     # For clean testing we restart :radish_db
     case Application.stop(:radish_db) do
-      :ok                                   -> :ok
+      :ok -> :ok
       {:error, {:not_started, :radish_db}} -> :ok
     end
 
@@ -290,7 +296,8 @@ defmodule TestCaseTemplate do
       Application.delete_env(:radish_db, :per_member_options)
 
       File.rm_rf!("tmp")
-      :timer.sleep(1000) # try to avoid slave start failures in travis
+      # try to avoid slave start failures
+      :timer.sleep(1000)
     end)
   end
 end
