@@ -2,19 +2,6 @@ use Croma
 
 ExUnit.start()
 
-defmodule JustAnInt do
-  @moduledoc """
-  Simple realization of `RadishDB.Raft.StateMachine.Statable`
-  """
-
-  @behaviour RadishDB.Raft.StateMachine.Statable
-  def new, do: 0
-  def command(i, :get), do: {i, i}
-  def command(i, {:set, j}), do: {i, j}
-  def command(i, :inc), do: {i, i + 1}
-  def query(i, :get), do: i
-end
-
 defmodule MessageSendingHook do
   @moduledoc """
   Simple realization of `RadishDB.Raft.Communication.LeaderHook`

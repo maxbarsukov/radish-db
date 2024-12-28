@@ -5,8 +5,8 @@ defmodule RadishDB.ConsensusGroups.Cluster.RecoveryTest do
 
   use ExUnit.Case
 
-  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Cluster.Cluster
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.OTP.ConsensusMemberSupervisor
 
   defmodule ConfigMaker do
