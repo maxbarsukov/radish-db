@@ -47,19 +47,14 @@ jobs:
             ${{ runner.os }}-deps-${{ hashFiles('**/mix.lock') }}
             ${{ runner.os }}-deps
 
-      - name: Install package dependencies
-        run: mix deps.get
-
       - name: Remove compiled application files
         run: mix clean
 
+      - name: Install package dependencies
+        run: mix deps.get
+
       - name: Compile dependencies
         run: mix compile
-        env:
-          MIX_ENV: test
-
-      - name: Run tests
-        run: mix test --trace
         env:
           MIX_ENV: test
 
@@ -75,7 +70,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check code formatting
-        run: mix check
+        run: mix format --check-formatted
 
       - name: Run Credo linter
         run: mix credo --strict
+
+      - name: Run Dialyzer linter
+        run: mix dialyzer
