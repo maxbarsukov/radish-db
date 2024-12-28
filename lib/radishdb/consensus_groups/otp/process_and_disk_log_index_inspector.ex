@@ -12,7 +12,7 @@ defmodule RadishDB.ConsensusGroups.OTP.ProcessAndDiskLogIndexInspector do
   use GenServer
 
   alias Croma.Result, as: R
-  alias RadishDB.ConsensusGroups.API
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Config.PerMemberOptions
   alias RadishDB.Raft.Node, as: RaftNode
   alias RadishDB.Raft.Types.LogIndex
@@ -48,7 +48,7 @@ defmodule RadishDB.ConsensusGroups.OTP.ProcessAndDiskLogIndexInspector do
 
   defun find_node_having_latest_log_index(name :: atom) ::
           {:ok, nil | node} | {:error, :process_exists} do
-    case API.active_nodes() |> Enum.flat_map(fn {_, ns} -> ns end) do
+    case GroupApplication.active_nodes() |> Enum.flat_map(fn {_, ns} -> ns end) do
       [n] when n ->
         {:ok, n}
 

@@ -4,7 +4,7 @@ defmodule RadishDB.ConsensusGroups.Config.PerMemberOptionsMaker do
   for consensus groups in a Raft-based system.
   """
 
-  alias RadishDB.Raft.Node
+  alias RadishDB.Raft.Node, as: RaftNode
 
-  @callback make(consensus_group_name :: atom) :: [Node.option()]
+  @callback make(name :: atom) :: [RaftNode.option()]
 end

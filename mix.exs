@@ -10,7 +10,7 @@ defmodule RadishDB.MixProject do
 
   def project do
     [
-      app: :radishdb,
+      app: :radish_db,
       elixir: "~> 1.17",
       # escript: escript(),
       build_embedded: Mix.env() == :prod,
@@ -54,8 +54,8 @@ defmodule RadishDB.MixProject do
 
   def application do
     [
-      extra_applications: [:croma, :logger]
-      # mod: {RadishDB.Main, []}
+      extra_applications: [:croma, :logger],
+      mod: {RadishDB.ConsensusGroups.GroupApplication, []}
     ]
   end
 

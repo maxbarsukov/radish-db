@@ -5,7 +5,7 @@ defmodule RadishDB.ConsensusGroups.Config.Config do
   A module that defines application configs
   """
 
-  @default_balancing_interval 60_000
+  @default_balancing_interval (if Mix.env() == :test, do:  1_000, else:  60_000)
 
   @doc """
   `:balancing_interval`
@@ -50,7 +50,7 @@ defmodule RadishDB.ConsensusGroups.Config.Config do
     Application.get_env(:radish_db, :follower_addition_delay, @default_follower_addition_delay)
   end
 
-  @default_node_purge_failure_time_window 600_000
+  @default_node_purge_failure_time_window (if Mix.env() == :test, do: 30_000, else: 600_000)
 
   @doc """
   `:node_purge_failure_time_window`
@@ -73,7 +73,7 @@ defmodule RadishDB.ConsensusGroups.Config.Config do
     )
   end
 
-  @default_node_purge_reconnect_interval 60_000
+  @default_node_purge_reconnect_interval (if Mix.env() == :test, do:  5_000, else:  60_000)
 
   @doc """
   `:node_purge_reconnect_interval`

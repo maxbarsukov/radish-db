@@ -20,7 +20,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster do
 
   require Logger
 
-  alias RadishDB.ConsensusGroups.API
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Cache.LeaderPidCache
   alias RadishDB.ConsensusGroups.Cluster.{Cluster, Manager}
   alias RadishDB.Raft.Node, as: RaftNode
@@ -30,7 +30,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster do
                                                   else: 30 * 60_000
 
   def adjust do
-    case API.query(Cluster, {:consensus_groups, Node.self()}) do
+    case GroupApplication.query(Cluster, {:consensus_groups, Node.self()}) do
       {:error, reason} ->
         Logger.warning("querying all consensus groups failed: #{inspect(reason)}")
 
@@ -116,7 +116,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster do
       index ->
         # We need to report back to `Cluster` about the cleanup.
         spawn(fn ->
-          API.command(Cluster, make_command_about_cleanup(index))
+          GroupApplication.command(Cluster, make_command_about_cleanup(index))
         end)
     end
   end
@@ -420,7 +420,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster do
     :timer.sleep(5_000)
 
     if Enum.all?(relevant_nodes, fn n -> try_status({group_name, n}) == :noproc end) do
-      ret = API.remove_consensus_group(group_name)
+      ret = GroupApplication.remove_consensus_group(group_name)
 
       Logger.error(
         "all members of #{group_name} have failed; removing the consensus group as a last resort: #{inspect(ret)}"

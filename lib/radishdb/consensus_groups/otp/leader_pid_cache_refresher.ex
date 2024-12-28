@@ -8,7 +8,7 @@ defmodule RadishDB.ConsensusGroups.OTP.LeaderPidCacheRefresher do
 
   use GenServer
 
-  alias RadishDB.ConsensusGroups.API
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Cache.LeaderPidCache
   alias RadishDB.ConsensusGroups.Cluster
   alias RadishDB.ConsensusGroups.Config.Config
@@ -41,7 +41,7 @@ defmodule RadishDB.ConsensusGroups.OTP.LeaderPidCacheRefresher do
   defp refresh_all_by_keys(keys) do
     nodes = MapSet.new(Node.list())
     cache_keys = MapSet.delete(keys, Cluster)
-    group_names = API.consensus_groups() |> MapSet.new(fn {name, _} -> name end)
+    group_names = GroupApplication.consensus_groups() |> MapSet.new(fn {name, _} -> name end)
 
     MapSet.intersection(cache_keys, group_names) |> Enum.each(&confirm_leader_or_find(&1, nodes))
     MapSet.difference(cache_keys, group_names) |> Enum.each(&LeaderPidCache.unset/1)

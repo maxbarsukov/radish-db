@@ -24,7 +24,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
   use GenServer
   require Logger
 
-  alias RadishDB.ConsensusGroups.API
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster
   alias RadishDB.ConsensusGroups.Config.Config
   alias RadishDB.ConsensusGroups.OTP.{ConsensusMemberSupervisor, ProcessAndDiskLogIndexInspector}
@@ -72,14 +72,14 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
     end
 
     defp step(:start_cluster_consensus_member) do
-      case Supervisor.start_child(API.Supervisor, Cluster.Server.child_spec()) do
+      case Supervisor.start_child(GroupApplication.Supervisor, Cluster.Server.child_spec()) do
         {:ok, _} -> :ok
         {:error, _} -> :error
       end
     end
 
     defp step({:add_node, zone}) do
-      case API.command(Cluster, {:add_node, Node.self(), zone}) do
+      case GroupApplication.command(Cluster, {:add_node, Node.self(), zone}) do
         {:ok, _} -> :ok
         {:error, _} -> :error
       end
@@ -138,7 +138,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
     end
 
     defp step(:remove_node_command) do
-      case API.command(Cluster, {:remove_node, Node.self()}) do
+      case GroupApplication.command(Cluster, {:remove_node, Node.self()}) do
         {:ok, _} -> :ok
         _ -> :error
       end
@@ -155,8 +155,8 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
     end
 
     defp step(:delete_child_from_supervisor) do
-      :ok = Supervisor.terminate_child(API.Supervisor, Cluster.Server)
-      :ok = Supervisor.delete_child(API.Supervisor, Cluster.Server)
+      :ok = Supervisor.terminate_child(GroupApplication.Supervisor, Cluster.Server)
+      :ok = Supervisor.delete_child(GroupApplication.Supervisor, Cluster.Server)
     end
 
     defp step(:notify_node_reconnect_in_this_node) do
@@ -500,7 +500,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
   defp extract_dead_follower_pid_from_reason(_), do: nil
 
   defp try_to_remove_dead_follower(name, dead_follower_pid) do
-    case API.whereis_leader(name) do
+    case GroupApplication.whereis_leader(name) do
       # give up
       nil ->
         :ok

@@ -18,7 +18,7 @@ defmodule RadishDB.ConsensusGroups.OTP.NodeReconnect do
 
   use GenServer
 
-  alias RadishDB.ConsensusGroups.API
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Config.Config
   alias RadishDB.ConsensusGroups.Utils.NodesPerZone
   alias RadishDB.Raft.Utils.Monotonic
@@ -31,7 +31,7 @@ defmodule RadishDB.ConsensusGroups.OTP.NodeReconnect do
     - `unhealthy_since`: A map tracking nodes that have been unhealthy,
       with timestamps of when they were marked unhealthy.
     """
-    alias RadishDB.ConsensusGroups.API
+    alias RadishDB.ConsensusGroups.GroupApplication
     require Logger
 
     use Croma.Struct,
@@ -115,7 +115,7 @@ defmodule RadishDB.ConsensusGroups.OTP.NodeReconnect do
                 "purge node #{n} as it has been disconnected for longer than #{window}ms"
               )
 
-              API.remove_dead_pids_located_in_dead_node(n)
+              GroupApplication.remove_dead_pids_located_in_dead_node(n)
             end)
           end)
       end
@@ -181,7 +181,7 @@ defmodule RadishDB.ConsensusGroups.OTP.NodeReconnect do
   defp call_active_nodes do
     result =
       try do
-        API.active_nodes()
+        GroupApplication.active_nodes()
       catch
         :error, _ -> :error
       end

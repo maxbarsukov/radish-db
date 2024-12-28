@@ -1,6 +1,6 @@
 use Croma
 
-defmodule RadishDB.ConsensusGroups.API do
+defmodule RadishDB.ConsensusGroups.GroupApplication do
   @moduledoc """
   Public interface functions of consensus groups managing.
   """
@@ -34,7 +34,7 @@ defmodule RadishDB.ConsensusGroups.API do
       ProcessAndDiskLogIndexInspector
     ]
 
-    opts = [strategy: :one_for_one, name: API.Supervisor]
+    opts = [strategy: :one_for_one, name: GroupApplication.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
