@@ -18,8 +18,8 @@ defmodule RadishDB.ConsensusGroups.OTP.NodeReconnect do
 
   use GenServer
 
-  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Config.Config
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Utils.NodesPerZone
   alias RadishDB.Raft.Utils.Monotonic
 

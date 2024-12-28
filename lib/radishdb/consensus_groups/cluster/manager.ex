@@ -25,213 +25,12 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
   require Logger
 
   alias RadishDB.ConsensusGroups.GroupApplication
-  alias RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster
+  alias RadishDB.ConsensusGroups.Cluster.{Activator, ConsensusMemberAdjuster, Deactivator}
   alias RadishDB.ConsensusGroups.Config.Config
   alias RadishDB.ConsensusGroups.OTP.{ConsensusMemberSupervisor, ProcessAndDiskLogIndexInspector}
   alias RadishDB.Raft.Node, as: RaftNode
   alias RadishDB.Raft.Types.Config, as: RaftConfig
   alias RadishDB.Raft.Types.Error.AddFollowerError
-
-  defmodule Activator do
-    @moduledoc """
-    The Activator module handles the activation process for nodes in the consensus group.
-    """
-
-    alias RadishDB.ConsensusGroups.Cluster.Cluster
-    alias RadishDB.ConsensusGroups.OTP.NodeReconnect
-
-    @tries 5
-    @sleep 1_000
-
-    @doc """
-    Activates a node in the specified zone by executing a series of steps.
-    """
-    def activate(zone) do
-      steps = [
-        :start_cluster_consensus_member,
-        {:add_node, zone},
-        :notify_node_reconnect_in_this_node,
-        :notify_node_reconnects_in_other_nodes
-      ]
-
-      run_steps(steps, @tries)
-    end
-
-    defp run_steps(_, 0), do: raise("Failed to complete all steps of node activation!")
-    defp run_steps([], _), do: :ok
-
-    defp run_steps([s | ss], tries_remaining) do
-      case step(s) do
-        :ok ->
-          run_steps(ss, tries_remaining)
-
-        :error ->
-          :timer.sleep(@sleep)
-          run_steps([s | ss], tries_remaining - 1)
-      end
-    end
-
-    defp step(:start_cluster_consensus_member) do
-      case Supervisor.start_child(GroupApplication.Supervisor, Cluster.Server.child_spec()) do
-        {:ok, _} -> :ok
-        {:error, _} -> :error
-      end
-    end
-
-    defp step({:add_node, zone}) do
-      case GroupApplication.command(Cluster, {:add_node, Node.self(), zone}) do
-        {:ok, _} -> :ok
-        {:error, _} -> :error
-      end
-    end
-
-    defp step(:notify_node_reconnect_in_this_node) do
-      GenServer.cast(NodeReconnect, :this_node_activated)
-    end
-
-    defp step(:notify_node_reconnects_in_other_nodes) do
-      GenServer.abcast(Node.list(), NodeReconnect, {:other_node_activated, Node.self()})
-      :ok
-    end
-  end
-
-  defmodule Deactivator do
-    @moduledoc """
-    The Deactivator module handles the deactivation process for nodes in the consensus group.
-    """
-
-    require Logger
-
-    alias RadishDB.ConsensusGroups.Cache.LeaderPidCache
-    alias RadishDB.ConsensusGroups.Cluster.Cluster
-    alias RadishDB.ConsensusGroups.OTP.NodeReconnect
-    alias RadishDB.Raft.Node, as: RaftNode
-
-    @tries 10
-    @sleep 1_000
-    @deactivate_steps [
-      :remove_node_command,
-      :remove_follower_from_cluster_consensus,
-      :delete_child_from_supervisor,
-      :notify_node_reconnect_in_this_node
-    ]
-
-    @doc """
-    Deactivates the current node by executing a series of steps.
-    """
-    def deactivate do
-      run_steps(@deactivate_steps, @tries)
-    end
-
-    defp run_steps(_, 0), do: raise("Failed to complete all steps of node deactivation!")
-    defp run_steps([], _), do: :ok
-
-    defp run_steps([s | ss], tries_remaining) do
-      case step(s) do
-        :ok ->
-          run_steps(ss, tries_remaining)
-
-        :error ->
-          :timer.sleep(@sleep)
-          run_steps([s | ss], tries_remaining - 1)
-      end
-    end
-
-    defp step(:remove_node_command) do
-      case GroupApplication.command(Cluster, {:remove_node, Node.self()}) do
-        {:ok, _} -> :ok
-        _ -> :error
-      end
-    end
-
-    defp step(:remove_follower_from_cluster_consensus) do
-      local_member = Process.whereis(Cluster)
-
-      case LeaderPidCache.find_leader_and_cache(Cluster) do
-        nil -> :error
-        ^local_member -> handle_current_leader(local_member)
-        current_leader -> remove_follower(current_leader, local_member)
-      end
-    end
-
-    defp step(:delete_child_from_supervisor) do
-      :ok = Supervisor.terminate_child(GroupApplication.Supervisor, Cluster.Server)
-      :ok = Supervisor.delete_child(GroupApplication.Supervisor, Cluster.Server)
-    end
-
-    defp step(:notify_node_reconnect_in_this_node) do
-      GenServer.cast(NodeReconnect, :this_node_deactivated)
-    end
-
-    defp handle_current_leader(local_member) do
-      status = RaftNode.status(local_member)
-      other_members = List.delete(status[:members], local_member)
-
-      if other_members == [] do
-        :ok
-      else
-        case pick_next_leader(local_member, other_members) do
-          # No suitable member found
-          nil -> :error
-          next_leader -> replace_leader(local_member, next_leader)
-        end
-      end
-    end
-
-    defp remove_follower(current_leader, local_member) do
-      case catch_exit(fn -> RaftNode.remove_follower(current_leader, local_member) end) do
-        :ok ->
-          :ok
-
-        {:error, reason} ->
-          Logger.error("remove follower failed: #{inspect(reason)}")
-          :error
-      end
-    end
-
-    defp pick_next_leader(current_leader, other_members) do
-      # We don't want to migrate the current leader to an inactive node;
-      # check currently active nodes before choosing a member.
-      case RaftNode.query(current_leader, :active_nodes) do
-        {:ok, nodes_per_zone} ->
-          nodes = Map.values(nodes_per_zone) |> List.flatten() |> MapSet.new()
-
-          case Enum.filter(other_members, &(node(&1) in nodes)) do
-            [] -> nil
-            members_in_active_nodes -> Enum.random(members_in_active_nodes)
-          end
-
-        {:error, _} ->
-          # Although local member has been the leader until very recently,
-          # it turns out that it's not leader now.
-          # Let's retry from the beginning of the step.
-          nil
-      end
-    end
-
-    defp replace_leader(leader, next_leader) do
-      catch_exit(fn -> RaftNode.replace_leader(leader, next_leader) end)
-      |> case do
-        :ok ->
-          Logger.info(
-            "replaced current leader (#{inspect(leader)}) in this node with #{inspect(next_leader)} in #{node(next_leader)} to deactivate this node"
-          )
-
-          LeaderPidCache.set(Cluster, next_leader)
-
-        {:error, reason} ->
-          Logger.error(
-            "tried to replace current leader in this node but failed: #{inspect(reason)}"
-          )
-      end
-    end
-
-    defp catch_exit(f) do
-      f.()
-    catch
-      :exit, reason -> {:error, reason}
-    end
-  end
 
   defmodule State do
     @moduledoc """
@@ -349,15 +148,15 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
   end
 
   def handle_cast({:start_consensus_group_members, name, raft_config, member_nodes}, state) do
-    if State.phase(state) in [:active, :activating] do
-      handle_active_state(name, raft_config, member_nodes, state)
-    else
-      Logger.info(
-        "manager process is not active; cannot start member processes for consensus group #{name}"
-      )
+    new_state =
+      if State.phase(state) in [:active, :activating] do
+        handle_active_state(name, raft_config, member_nodes, state)
+      else
+        log_inactive_state(name)
+        state
+      end
 
-      {:noreply, state}
-    end
+    {:noreply, new_state}
   end
 
   def handle_cast({:start_consensus_group_follower, name, leader_node_hint}, state) do
@@ -383,46 +182,24 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
       {:ok, node_or_nil} ->
         node_to_host_initial_leader = node_or_nil || Node.self()
 
-        start_or_delegate_leader(
-          node_to_host_initial_leader,
-          name,
-          raft_config,
-          member_nodes,
-          state
-        )
+        if node_to_host_initial_leader == Node.self() do
+          start_leader_and_tell_other_nodes_to_start_follower(name, raft_config, member_nodes, state)
+        else
+          delegate_leader_to_node(node_to_host_initial_leader, name, raft_config, member_nodes)
+          State.update_being_added_consensus_groups(state, name, {:leader_delegated_to, node_to_host_initial_leader})
+        end
 
       {:error, :process_exists} ->
-        {:noreply, State.update_being_added_consensus_groups(state, name, :process_exists)}
+        State.update_being_added_consensus_groups(state, name, :process_exists)
     end
   end
 
-  defp start_or_delegate_leader(
-         node_to_host_initial_leader,
-         name,
-         raft_config,
-         member_nodes,
-         state
-       ) do
-    if node_to_host_initial_leader == Node.self() do
-      start_leader_and_tell_other_nodes_to_start_follower(name, raft_config, member_nodes, state)
-      {:noreply, state}
-    else
-      start_consensus_group_members(
-        {__MODULE__, node_to_host_initial_leader},
-        name,
-        raft_config,
-        member_nodes
-      )
+  defp delegate_leader_to_node(node, name, raft_config, member_nodes) do
+    start_consensus_group_members({__MODULE__, node}, name, raft_config, member_nodes)
+  end
 
-      new_state =
-        State.update_being_added_consensus_groups(
-          state,
-          name,
-          {:leader_delegated_to, node_to_host_initial_leader}
-        )
-
-      {:noreply, new_state}
-    end
+  defp log_inactive_state(name) do
+    Logger.info("manager process is not active; cannot start member processes for consensus group #{name}")
   end
 
   defp start_leader_and_tell_other_nodes_to_start_follower(name, raft_config, member_nodes, state) do
@@ -465,28 +242,39 @@ defmodule RadishDB.ConsensusGroups.Cluster.Manager do
   end
 
   defp start_follower_with_retry(other_node_members, name, tries_remaining) do
-    case :supervisor.start_child(ConsensusMemberSupervisor, [
-           {:join_existing_consensus_group, other_node_members},
-           name
-         ]) do
-      {:ok, pid} -> {:ok, pid}
-      {:error, {:already_started, pid}} -> {:ok, pid}
-      {:error, reason} -> handle_follower_error(reason, other_node_members, name, tries_remaining)
+    case attempt_to_start_follower(other_node_members, name) do
+      {:ok, pid} ->
+        {:ok, pid}
+
+      {:error, {:already_started, pid}} ->
+        {:ok, pid}
+
+      {:error, reason} ->
+        handle_follower_start_error(reason, name)
+        retry_starting_follower(other_node_members, name, tries_remaining)
     end
   end
 
-  defp handle_follower_error(reason, other_node_members, name, tries_remaining) do
+  defp attempt_to_start_follower(other_node_members, name) do
+    :supervisor.start_child(ConsensusMemberSupervisor, [
+      {:join_existing_consensus_group, other_node_members},
+      name
+    ])
+  end
+
+  defp handle_follower_start_error(reason, name) do
     case extract_dead_follower_pid_from_reason(reason) do
       nil -> :ok
       dead_follower_pid -> spawn(fn -> try_to_remove_dead_follower(name, dead_follower_pid) end)
     end
+  end
 
-    :timer.sleep(2 * Config.follower_addition_delay())
-
-    if tries_remaining > 1 do
+  defp retry_starting_follower(other_node_members, name, tries_remaining) do
+    if tries_remaining > 0 do
+      :timer.sleep(2 * Config.follower_addition_delay())
       start_follower_with_retry(other_node_members, name, tries_remaining - 1)
     else
-      :error
+      {:error, :max_retries_exceeded}
     end
   end
 

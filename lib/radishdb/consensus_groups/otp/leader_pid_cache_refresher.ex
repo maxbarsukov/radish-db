@@ -8,10 +8,10 @@ defmodule RadishDB.ConsensusGroups.OTP.LeaderPidCacheRefresher do
 
   use GenServer
 
-  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Cache.LeaderPidCache
   alias RadishDB.ConsensusGroups.Cluster
   alias RadishDB.ConsensusGroups.Config.Config
+  alias RadishDB.ConsensusGroups.GroupApplication
 
   defun start_link([]) :: {:ok, pid} do
     GenServer.start_link(__MODULE__, :ok, [])

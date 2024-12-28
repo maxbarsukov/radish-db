@@ -9,6 +9,7 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
   alias RadishDB.ConsensusGroups.Cache.LeaderPidCache
   alias RadishDB.ConsensusGroups.Config.Config
   alias RadishDB.ConsensusGroups.Cluster.{Cluster, Manager}
+  alias RadishDB.ConsensusGroups.GroupApplication, as: App
 
   alias RadishDB.ConsensusGroups.OTP.{
     ConsensusMemberSupervisor,
@@ -34,7 +35,7 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
       ProcessAndDiskLogIndexInspector
     ]
 
-    opts = [strategy: :one_for_one, name: GroupApplication.Supervisor]
+    opts = [strategy: :one_for_one, name: App.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -65,7 +66,7 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
   Queries the current nodes which have been activated using `activate/1` in the cluster.
   """
   defun active_nodes() :: %{ZoneId.t() => [node]} do
-    {:ok, ret} = query(Cluster, :active_nodes)
+    {:ok, ret} = App.query(Cluster, :active_nodes)
     ret
   end
 
@@ -146,7 +147,7 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
   Queries already registered consensus groups.
   """
   defun consensus_groups() :: %{atom => pos_integer} do
-    {:ok, ret} = query(Cluster, :consensus_groups)
+    {:ok, ret} = App.query(Cluster, :consensus_groups)
     ret
   end
 
@@ -190,38 +191,34 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
     else
       case LeaderPidCache.get(name) do
         nil -> find_leader_and_exec(name, tries_remaining, retry_interval, f)
-        leader_pid -> attempt_execution(leader_pid, name, tries_remaining, retry_interval, f)
+        leader_pid -> execute_with_retry(leader_pid, name, tries_remaining, retry_interval, f)
       end
-    end
-  end
-
-  defp attempt_execution(leader_pid, name, tries_remaining, retry_interval, f) do
-    case run_with_catch(leader_pid, f) do
-      {:ok, _} = ok ->
-        ok
-
-      {:error, _} ->
-        LeaderPidCache.unset(name)
-        find_leader_and_exec(name, tries_remaining, retry_interval, f)
     end
   end
 
   defp find_leader_and_exec(name, tries_remaining, retry_interval, f) do
     case LeaderPidCache.find_leader_and_cache(name) do
       nil -> retry(name, tries_remaining, retry_interval, f)
-      leader_pid -> attempt_execution(leader_pid, name, tries_remaining, retry_interval, f)
+      leader_pid -> execute_with_retry(leader_pid, name, tries_remaining, retry_interval, f)
     end
   end
 
-  defp retry(name, tries_remaining, retry_interval, f) do
-    :timer.sleep(retry_interval)
-    call_with_retry(name, tries_remaining - 1, retry_interval, f)
+  defp execute_with_retry(leader_pid, name, tries_remaining, retry_interval, f) do
+    case run_with_catch(leader_pid, f) do
+      {:ok, _} = ok -> ok
+      {:error, _} -> retry(name, tries_remaining, retry_interval, f)
+    end
   end
 
   defp run_with_catch(pid, f) do
     f.(pid)
   catch
     :exit, _ -> {:error, :exit}
+  end
+
+  defp retry(name, tries_remaining, retry_interval, f) do
+    :timer.sleep(retry_interval)
+    call_with_retry(name, tries_remaining - 1, retry_interval, f)
   end
 
   @doc """
@@ -244,7 +241,7 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
         {Cluster, pairs}
 
       {:ok, _} ->
-        consensus_groups()
+        App.consensus_groups()
         |> Enum.find_value(:ok, fn {group, _n_desired_members} ->
           case inspect_statuses_of_consensus_group(group) do
             {:ok, _} -> nil
@@ -259,9 +256,10 @@ defmodule RadishDB.ConsensusGroups.GroupApplication do
   """
   defun remove_dead_pids_located_in_dead_node(dead_node :: g[node]) :: :ok do
     remove_pid_located_in_dead_node_from_consensus_group(Cluster, dead_node)
-    {:ok, :ok} = command(Cluster, {:remove_node, dead_node})
 
-    consensus_groups()
+    {:ok, :ok} = App.command(Cluster, {:remove_node, dead_node})
+
+    App.consensus_groups()
     |> Enum.each(fn {group, _n_desired_members} ->
       remove_pid_located_in_dead_node_from_consensus_group(group, dead_node)
     end)

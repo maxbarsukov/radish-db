@@ -12,8 +12,8 @@ defmodule RadishDB.ConsensusGroups.OTP.ProcessAndDiskLogIndexInspector do
   use GenServer
 
   alias Croma.Result, as: R
-  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Config.PerMemberOptions
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.Raft.Node, as: RaftNode
   alias RadishDB.Raft.Types.LogIndex
 

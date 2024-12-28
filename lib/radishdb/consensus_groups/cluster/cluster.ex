@@ -13,7 +13,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
   """
 
   alias RadishDB.ConsensusGroups.Cluster.{Manager, RecentlyRemovedGroups}
-  alias RadishDB.ConsensusGroups.Config.PerMemberOptions
+  alias RadishDB.ConsensusGroups.Config.{Config, PerMemberOptions}
   alias RadishDB.ConsensusGroups.Types.{ConsensusGroups, MembersPerLeaderNode}
   alias RadishDB.ConsensusGroups.Utils.NodesPerZone
   alias RadishDB.Raft.Node, as: RaftNode
@@ -30,12 +30,11 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
 
     alias RadishDB.ConsensusGroups.Cluster.Cluster
     alias RadishDB.ConsensusGroups.Config.Config
-    alias RadishDB.Raft.Node, as: RaftNode
-    alias RadishDB.Raft.Types.Config, as: RaftConfig
 
     defun start_link(raft_config :: RaftConfig.t(), name :: g[atom]) :: GenServer.on_start() do
+      # Use lock facility provided by :global module to avoid race conditions
       :global.trans(
-        {:radishdb_cluster_state_initialization, self()},
+        {:radish_db_cluster_state_initialization, self()},
         fn ->
           if not Enum.any?(Node.list(), fn n -> raft_server_alive?({name, n}) end) do
             RaftNode.start_link(
@@ -48,8 +47,12 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
         0
       )
       |> case do
-        {:ok, pid} -> {:ok, pid}
-        _ -> start_follower_with_retry(name, 3)
+        {:ok, pid} ->
+          {:ok, pid}
+
+        _ ->
+          # Other server exists or cannot acquire lock; we need to retry since there may be no leader
+          start_follower_with_retry(name, 3)
       end
     end
 
@@ -113,6 +116,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
         nodes_per_zone: NodesPerZone,
         consensus_groups: ConsensusGroups,
         recently_removed_groups: RecentlyRemovedGroups,
+        # this is cache; reproducible from `nodes` and `consensus_groups`
         members_per_leader_node: MembersPerLeaderNode
       ]
 
@@ -125,18 +129,27 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
       } = state
 
       cond do
-        Map.has_key?(groups, group) -> {{:error, :already_added}, state}
-        Enum.empty?(nodes) -> {{:error, :no_active_node}, state}
-        RecentlyRemovedGroups.cleanup_ongoing?(rrgs, group) -> {{:error, :cleanup_ongoing}, state}
-        true -> add_group_success(state, group, n_replica, nodes, members)
+        Map.has_key?(groups, group) ->
+          {{:error, :already_added}, state}
+
+        Enum.empty?(nodes) ->
+          {{:error, :no_active_node}, state}
+
+        RecentlyRemovedGroups.cleanup_ongoing?(rrgs, group) ->
+          {{:error, :cleanup_ongoing}, state}
+
+        true ->
+          create_new_group(state, group, n_replica, nodes, members)
       end
     end
 
-    defp add_group_success(state, group, n_replica, nodes, members) do
-      new_groups = Map.put(state.consensus_groups, group, n_replica)
-      [leader | _] = member_nodes = NodesPerZone.lrw_members(nodes, group, n_replica)
+    defp create_new_group(state, group, n_replica, nodes, members) do
+      member_nodes = NodesPerZone.lrw_members(nodes, group, n_replica)
+      [leader | _] = member_nodes
       pair = {group, member_nodes}
+
       new_members = Map.update(members, leader, [pair], &[pair | &1])
+      new_groups = Map.put(state.consensus_groups, group, n_replica)
 
       new_state = %__MODULE__{
         state
@@ -156,38 +169,41 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
       } = state
 
       if Map.has_key?(groups, group) do
-        remove_group_success(state, group, nodes, members, rrgs)
+        new_state = update_groups_and_rrgs(state, groups, rrgs, group)
+
+        if map_size(nodes) == 0 do
+          {:ok, new_state}
+        else
+          update_members(new_state, nodes, members, group)
+        end
       else
         {{:error, :not_found}, state}
       end
     end
 
-    defp remove_group_success(state, group, nodes, members, rrgs) do
-      new_groups = Map.delete(state.consensus_groups, group)
+    defp update_groups_and_rrgs(state, groups, rrgs, group) do
+      new_groups = Map.delete(groups, group)
       new_rrgs = RecentlyRemovedGroups.add(rrgs, group)
 
-      new_state = %__MODULE__{
+      %__MODULE__{
         state
         | consensus_groups: new_groups,
           recently_removed_groups: new_rrgs
       }
-
-      if map_size(nodes) == 0 do
-        {:ok, new_state}
-      else
-        [leader] = NodesPerZone.lrw_members(nodes, group, 1)
-        new_group_members_pairs = members[leader] |> Enum.reject(&match?({^group, _}, &1))
-        new_members = update_members(new_group_members_pairs, members, leader)
-        {:ok, %__MODULE__{new_state | members_per_leader_node: new_members}}
-      end
     end
 
-    defp update_members([], members, leader) do
-      Map.delete(members, leader)
-    end
+    defp update_members(new_state, nodes, members, group) do
+      [leader] = NodesPerZone.lrw_members(nodes, group, 1)
+      new_group_members_pairs = members[leader] |> Enum.reject(&match?({^group, _}, &1))
 
-    defp update_members(new_group_members_pairs, members, leader) do
-      Map.put(members, leader, new_group_members_pairs)
+      new_members =
+        if new_group_members_pairs == [] do
+          Map.delete(members, leader)
+        else
+          Map.put(members, leader, new_group_members_pairs)
+        end
+
+      {:ok, %__MODULE__{new_state | members_per_leader_node: new_members}}
     end
 
     def add_node(state, n, z) do
@@ -203,18 +219,17 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
 
     def remove_node(state, n) do
       %__MODULE__{nodes_per_zone: nodes, consensus_groups: groups} = state
-      new_nodes = remove_node_from_zones(nodes, n)
+
+      new_nodes =
+        Enum.reduce(nodes, %{}, fn {z, ns}, m ->
+          case ns do
+            [^n] -> m
+            _ -> Map.put(m, z, List.delete(ns, n))
+          end
+        end)
+
       new_members = compute_members(new_nodes, groups)
       %__MODULE__{state | nodes_per_zone: new_nodes, members_per_leader_node: new_members}
-    end
-
-    defp remove_node_from_zones(nodes, n) do
-      Enum.reduce(nodes, %{}, fn {z, ns}, acc ->
-        case ns do
-          [^n] -> acc
-          _ -> Map.put(acc, z, List.delete(ns, n))
-        end
-      end)
     end
 
     defp compute_members(nodes, groups) do
@@ -243,6 +258,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
     and handles the restoration of groups from logs and snapshots.
     """
 
+    alias RadishDB.ConsensusGroups.Cluster.Manager
     alias RadishDB.ConsensusGroups.Config.Config
     alias RadishDB.Raft.Communication.LeaderHook
 
@@ -252,19 +268,27 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
     def on_command_committed(_state_before, entry, ret, _state_after) do
       case entry do
         {:add_group, group_name, _, raft_config, leader_node} ->
-          if Node.self() == leader_node do
-            handle_add_group_response(ret, group_name, raft_config)
-          end
+          handle_add_group_command(leader_node, ret, group_name, raft_config)
 
         _ ->
           nil
       end
     end
 
-    defp handle_add_group_response({:error, _}, _group_name, _raft_config), do: nil
+    defp handle_add_group_command(leader_node, ret, group_name, raft_config) do
+      if Node.self() == leader_node do
+        case ret do
+          {:error, _} ->
+            nil
 
-    defp handle_add_group_response({:ok, nodes}, group_name, raft_config) do
-      restoring? = Process.get(:radishdb_raft_rpc_server_restoring, false)
+          {:ok, nodes} ->
+            start_consensus_group_if_not_restoring(group_name, raft_config, nodes)
+        end
+      end
+    end
+
+    defp start_consensus_group_if_not_restoring(group_name, raft_config, nodes) do
+      restoring? = Process.get(:radish_db_raft_rpc_server_restoring, false)
 
       unless restoring? do
         Manager.start_consensus_group_members(group_name, raft_config, nodes)
@@ -290,6 +314,9 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
           :ok
 
         mod ->
+          # As it's right after 1st activation,
+          # it's highly likely that the cluster consists of only 1 node;
+          # let's start consensus groups with 1 member.
           target_nodes = [Node.self()]
 
           Enum.each(gs, fn {g, _} ->
@@ -314,49 +341,49 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
 
   @impl true
   defun command(data :: t, arg :: Statable.command_arg()) :: {Statable.command_ret(), t} do
-    case arg do
-      {:add_group, group, n, _raft_config, _node} ->
-        State.add_group(data, group, n)
+    # `raft_config` and `node` will be used in `Hook`
+    data, {:add_group, group, n, _raft_config, _node} ->
+      State.add_group(data, group, n)
 
-      {:remove_group, group} ->
-        State.remove_group(data, group)
+    data, {:remove_group, group} ->
+      State.remove_group(data, group)
 
-      {:add_node, node, zone} ->
-        {:ok, State.add_node(data, node, zone)}
+    data, {:add_node, node, zone} ->
+      {:ok, State.add_node(data, node, zone)}
 
-      {:remove_node, node} ->
-        {:ok, State.remove_node(data, node)}
+    data, {:remove_node, node} ->
+      {:ok, State.remove_node(data, node)}
 
-      {:stopped_extra_members, node, index, now, wait} ->
-        {:ok, State.update_removed_groups(data, node, index, now, wait)}
+    data, {:stopped_extra_members, node, index, now, wait} ->
+      {:ok, State.update_removed_groups(data, node, index, now, wait)}
 
-      _ ->
-        {{:error, :invalid_command}, data}
-    end
+    # For safety
+    data, _ ->
+      {{:error, :invalid_command}, data}
   end
 
   @impl true
   defun query(data :: t, arg :: Statable.query_arg()) :: Statable.query_ret() do
-    case {data, arg} do
-      {%State{
-         nodes_per_zone: nodes,
-         members_per_leader_node: members,
-         recently_removed_groups: removed
-       }, {:consensus_groups, node}} ->
-        participating_nodes = Enum.flat_map(nodes, fn {_z, ns} -> ns end)
-        groups_led_by_the_node = Map.get(members, node, [])
-        removed_groups_with_index = RecentlyRemovedGroups.names_for_node(removed, node)
-        {participating_nodes, groups_led_by_the_node, removed_groups_with_index}
+    %State{
+      nodes_per_zone: nodes,
+      members_per_leader_node: members,
+      recently_removed_groups: removed
+    },
+    {:consensus_groups, node} ->
+      participating_nodes = Enum.flat_map(nodes, fn {_z, ns} -> ns end)
+      groups_led_by_the_node = Map.get(members, node, [])
+      removed_groups_with_index = RecentlyRemovedGroups.names_for_node(removed, node)
+      {participating_nodes, groups_led_by_the_node, removed_groups_with_index}
 
-      {%State{nodes_per_zone: nodes}, :active_nodes} ->
-        nodes
+    %State{nodes_per_zone: nodes}, :active_nodes ->
+      nodes
 
-      {%State{consensus_groups: groups}, :consensus_groups} ->
-        groups
+    %State{consensus_groups: groups}, :consensus_groups ->
+      groups
 
-      _ ->
-        {:error, :invalid_query}
-    end
+    # For safety
+    _, _ ->
+      {:error, :invalid_query}
   end
 
   @default_raft_config_options [
@@ -366,6 +393,7 @@ defmodule RadishDB.ConsensusGroups.Cluster.Cluster do
 
   defun make_raft_config(raft_config_options :: Keyword.t() \\ @default_raft_config_options) ::
           RaftConfig.t() do
+    # :leader_hook_module must not be changed
     opts = Keyword.put(raft_config_options, :leader_hook_module, Hook)
     RaftNode.make_config(__MODULE__, opts)
   end

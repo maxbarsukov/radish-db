@@ -20,9 +20,9 @@ defmodule RadishDB.ConsensusGroups.Cluster.ConsensusMemberAdjuster do
 
   require Logger
 
-  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.ConsensusGroups.Cache.LeaderPidCache
   alias RadishDB.ConsensusGroups.Cluster.{Cluster, Manager}
+  alias RadishDB.ConsensusGroups.GroupApplication
   alias RadishDB.Raft.Node, as: RaftNode
 
   @wait_time_before_forgetting_deactivated_node if Mix.env() == :test,
