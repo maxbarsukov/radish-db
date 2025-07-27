@@ -47,21 +47,145 @@ RadishDB is an in-memory distributed key-value data store that chooses Consisten
 
 ### Pre-reqs <a name="pre-reqs"></a>
 
-Make sure you have [`git`](https://git-scm.com/) installed.
-
-TODO
+- Make sure you have [`git`](https://git-scm.com/) installed.
+- Erlang and Elixir (we recommend using [`asdf`](https://asdf-vm.com/) to manage versions).
 
 ### Building and Running <a name="run"></a>
 
-TODO
+1. Clone the repository:
+
+```bash
+git clone git@github.com:maxbarsukov/radish-db.git
+cd radish-db
+```
+
+1. Install dependencies:
+
+```bash
+mix deps.get
+```
+
+1. Compile the project:
+
+```bash
+mix compile
+```
+
+1. Start the application:
+
+```bash
+$ iex --sname 1 -S mix
+iex(1@laptop)>
+```
+
+#### Example
+
+Let's assume we have a 4-node Erlang cluster:
+
+```bash
+$ iex --sname 1 -S mix
+iex(1@laptop)>
+
+$ iex --sname 2 -S mix
+iex(2@laptop)> Node.connect(:"1@laptop")
+
+$ iex --sname 3 -S mix
+iex(3@laptop)> Node.connect(:"1@laptop")
+
+$ iex --sname 4 -S mix
+iex(4@laptop)> Node.connect(:"1@laptop")
+```
+
+Load the following module, which implements the `RadishDB.Raft.StateMachine.Statable` behavior on all cluster nodes:
+
+```elixir
+  defmodule JustAnInt do
+    @behaviour RadishDB.Raft.StateMachine.Statable
+    def new, do: 0
+    def command(i, {:set, j}), do: {i, j}
+    def command(i, :inc), do: {i, i + 1}
+    def query(i, :get), do: i
+  end
+```
+
+Call `RadishDB.ConsensusGroups.GroupApplication.activate/1` on all nodes:
+
+```elixir
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.activate("zone1")
+
+iex(2@laptop)> RadishDB.ConsensusGroups.GroupApplication.activate("zone2")
+
+iex(3@laptop)> RadishDB.ConsensusGroups.GroupApplication.activate("zone1")
+
+iex(4@laptop)> RadishDB.ConsensusGroups.GroupApplication.activate("zone2")
+```
+
+Than create 5 consensus groups, each of which replicates an integer and has 3 consensus members:
+
+```elixir
+iex(1@laptop)> config = RadishDB.Raft.Node.make_config(JustAnInt)
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.add_consensus_group(:consensus1, 3, config)
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.add_consensus_group(:consensus2, 3, config)
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.add_consensus_group(:consensus3, 3, config)
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.add_consensus_group(:consensus4, 3, config)
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.add_consensus_group(:consensus5, 3, config)
+```
+
+Now we can execute a query/command from any cluster node:
+
+```elixir
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.query(:consensus1, :get)
+{:ok, 0}
+
+iex(2@laptop)> RadishDB.ConsensusGroups.GroupApplication.command(:consensus1, :inc)
+{:ok, 0}
+
+iex(3@laptop)> RadishDB.ConsensusGroups.GroupApplication.query(:consensus1, :get)
+{:ok, 1}
+```
+Activation/deactivation of a node in a cluster triggers a rebalancing of the consensus member processes.
+
+A 3-nodes consensus group continues to operate if one of the members dies (even without deactivation):
+
+```elixir
+iex(3@laptop)> :gen_statem.stop(:baz)
+iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.query(:consensus1, :get)
+{:ok, 1}
+```
 
 ## ✅&ensp;Testing <a name="testing"></a>
 
-TODO
+Run tests with:
+```bash
+mix test
+```
+
+For detailed test output:
+```bash
+mix test --trace
+```
+
+Test coverage is tracked via [Coveralls](https://coveralls.io/github/maxbarsukov/radish-db?branch=master) and shown in the project badges.
 
 ## 🎨&ensp;Linting <a name="linting"></a>
 
-TODO
+We use multiple linting tools:
+
+```bash
+# Format code
+mix format
+
+# Run Credo for code analysis
+mix credo
+
+# Run Dialyzer for type checking
+mix dialyzer
+
+# Run all checks (format, credo, dialyzer)
+mix check
+```
+
+Linting is also automatically run on every commit via GitHub Actions.
 
 ---
 

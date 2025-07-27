@@ -97,7 +97,7 @@ _см. [README проекта](https://github.com/maxbarsukov/radish-db/blob/mas
   * во избежание состояния гонки нескольких лидеров
     * вопрос «существует ли консенсусная группа или нет» должен обрабатываться вызывающей стороной
 * Основным компонентом является модуль `RadishDB.Raft.RPCServer`.
-  * :gen_statem с 3 состояниями: `leader`, `candidate`, `follower`.
+  * `:gen_statem` с 3 состояниями: `leader`, `candidate`, `follower`.
   * необходимо обрабатывать 19 типов событий => 57 обработчиков для реализации
 * Для линеаризуемости
   * назначить уникальный идентификатор каждой команде
@@ -145,8 +145,8 @@ _см. [README проекта](https://github.com/maxbarsukov/radish-db/blob/mas
   * нужно назначить участников каждому узлу
   * добавление/удаление узла запускает ребалансировку
     * например 100 процессов в 4 узлах => 5 узлов
-      * a: 24, b: 27, c: 23, d: 26
-      * a: 19, b: 23, c: 18, d: 21, e: 19
+      * `a: 24, b: 27, c: 23, d: 26`
+      * `a: 19, b: 23, c: 18, d: 21, e: 19`
   * нельзя мигрировать множество процессов
     * в идеале нужно перенести только `1/n_nodes` процессов
     * простое использование `mod` приводит к очень плохим результатам
@@ -304,13 +304,13 @@ iex(1@laptop)> RadishDB.ConsensusGroups.GroupApplication.query(:consensus1, :get
 
 | Ссылка | Описание |
 | --- | --- |
-| [elixirschool.com/otp_distribution](https://elixirschool.com/en/lessons/advanced/otp_distribution) | Распределение ОТП |
+| [elixirschool.com/otp_distribution](https://elixirschool.com/en/lessons/advanced/otp_distribution) | OTP distribution |
 | [raft.github.io](https://raft.github.io/) | Raft Consensus Algorithm |
 | [raft.github.io/raft.pdf](https://raft.github.io/raft.pdf) | In Search of an Understandable Consensus Algorithm (Extended Version) |
 | [tikv.org/deep-dive/scalability/multi-raft](https://tikv.org/deep-dive/scalability/multi-raft/) | Multi-raft |
 | [habr.com/ru/articles/469999/](https://habr.com/ru/companies/dododev/articles/469999/) | Как сервера договариваются друг с другом: алгоритм распределённого консенсуса Raft |
 | [thesecretlivesofdata.com/raft/](https://thesecretlivesofdata.com/raft/) | Интерактивная демонстрация Raft |
-| [en.wikipedia.org/wiki/Raft_(algorithm)](https://en.wikipedia.org/wiki/Raft_(algorithm)) | wiki: Raft|
+| [en.wikipedia.org/wiki/Raft_(algorithm)](https://en.wikipedia.org/wiki/Raft_(algorithm)) | Raft на Wikipedia |
 | [eli.thegreenplace.net/2024/implementing-raft](https://eli.thegreenplace.net/2024/implementing-raft-part-4-keyvalue-database/) | Реализация Raft на Go |
 
 ## Лицензия <a name="license"></a>
