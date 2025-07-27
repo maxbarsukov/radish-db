@@ -52,26 +52,26 @@ RadishDB is an in-memory distributed key-value data store that chooses Consisten
 
 ### Building and Running <a name="run"></a>
 
-1. Clone the repository:
+Clone the repository:
 
 ```bash
 git clone git@github.com:maxbarsukov/radish-db.git
 cd radish-db
 ```
 
-1. Install dependencies:
+Install dependencies:
 
 ```bash
 mix deps.get
 ```
 
-1. Compile the project:
+Compile the project:
 
 ```bash
 mix compile
 ```
 
-1. Start the application:
+Start the application:
 
 ```bash
 $ iex --sname 1 -S mix
